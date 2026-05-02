@@ -22,14 +22,13 @@ def copy_static_to_public(source_dir, dest_dir):
 
 
 def extract_title(markdown):
-    pattern = r"^#\s+(.+)$"
-    match = re.search(pattern, markdown, re.MULTILINE)
+    match = re.search(r"^#\s+(.+)$", markdown, re.MULTILINE)
     if not match:
         raise ValueError("No h1 header found")
     return match.group(1).strip()
 
 
-def _apply_inline(text: str) -> str:
+def _apply_inline(text):
     text = re.sub(r"\[(.*?)\]\((.*?)\)", r'<a href="\2">\1</a>', text)
     text = re.sub(r"\*\*(.*?)\*\*", r"<b>\1</b>", text)
     text = re.sub(r"(?<!\w)_(.+?)_(?!\w)", r"<i>\1</i>", text)
@@ -86,24 +85,23 @@ def markdown_to_html_node(markdown):
 
 
 def generate_page(from_path, template_path, dest_path, basepath):
-    print(f"Generating page from {from_path} to {dest_path}")
-
     with open(from_path, "r", encoding="utf-8") as f:
         markdown = f.read()
 
     with open(template_path, "r", encoding="utf-8") as f:
         template = f.read()
 
-    html_node = markdown_to_html_node(markdown)
-    content = html_node.to_html()
+    content = markdown_to_html_node(markdown).to_html()
     title = extract_title(markdown)
 
     result = template.replace("{{ Title }}", title)\
                      .replace("{{ Content }}", content)
 
-    # 🔥 IMPORTANT: fix paths for GitHub Pages
-    result = result.replace('href="/', f'href="{basepath}')
-    result = result.replace('src="/', f'src="{basepath}')
+    # 🔥 IMPORTANT FIX (safe basepath handling)
+    if basepath != "/":
+        basepath = basepath.rstrip("/") + "/"
+        result = result.replace('href="/', f'href="{basepath}')
+        result = result.replace('src="/', f'src="{basepath}')
 
     os.makedirs(os.path.dirname(dest_path), exist_ok=True)
 
@@ -126,13 +124,10 @@ def generate_pages_recursive(dir_path_content, template_path, dest_dir_path, bas
 
 
 def main():
-    # default basepath for local dev
     basepath = "/"
-
     if len(sys.argv) > 1:
         basepath = sys.argv[1]
 
-    # 🔥 GitHub Pages uses /docs
     output_dir = "docs"
 
     if os.path.exists(output_dir):
